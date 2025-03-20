@@ -49,7 +49,9 @@ function generateSequence(length) {
 
 // Функция генерации пути к изображению
 function getImagePath(letter) {
-  return `letters/${difficultyFolder}/${letter} ${difficultyLetter}.png`;
+    let fileName = `${letter.toLowerCase()} ${difficultyLetter}.png`;
+    return `letters/${difficultyFolder}/${encodeURIComponent(fileName)}`;
+
 }
 
 // Функция генерации позиций
