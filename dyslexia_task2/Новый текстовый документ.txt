@@ -1,0 +1,339 @@
+// Инициализация jsPsych
+var jsPsych = initJsPsych({
+  override_safe_mode: true, // Для работы в режиме file:
+  on_finish: function () {
+    jsPsych.data.displayData();
+  },
+});
+
+// Создание временной линии (timeline)
+var timeline = [];
+
+
+
+
+ 
+// Время выполнения теста - 3 минуты
+var TestTime = 1000 * 60 * 3;
+
+
+
+var Expo = 500;
+var Gap = 500; 
+
+// Предустановленные переменные для параметров (значения по умолчанию)
+var StimulNumber = TestTime/(Expo + Gap); // По умолчанию средняя сложность
+
+
+// Определяем наборы букв и целевые слова
+var letterSets3 = [
+  { letters: ["Т", "Ч", "К", "П", "М", "У", "И", "Д", "Л", "Н", "Ц", "Ш"], words: ["ТЧК", "ШИК", "ЛУК", "ЛНД", "УМК", "ШДП"] },
+  { letters: ["П", "Р", "С", "Т", "И", "У", "Я", "Б", "Г", "О", "Ы", "Ч", "Э", "З"], words: ["ИГО", "ТИС", "БЗЯ", "РБЗ", "ЫСЯ", "СОЭ", "ПГИ"] },
+  { letters: ["С", "Т", "В", "О", "Ь", "Я", "Ы", "Ф", "Р", "Ш", "П", "Ц", "З"], words: ["СВР", "ФЗВ", "ВОР", "КОТ", "ФЫР", "ЗЫВ", "ШПЦ"]  },
+  { letters: ["С", "Т", "Р", "У", "К", "Ж", "А", "М", "Е", "Й", "Н", "Ч", "Т"], words: ["ЖАР", "ЖУК"] }
+];
+
+var letterSets4 = [
+   { letters: ["Т", "Ч", "К", "П", "М", "У", "И", "Д", "Л", "Н", "Ц", "Ш"], words: ["ДЛУН", "ПУНШ", "ШПИЦ", "ПШИК", "ШИМТ", "ШМУЧ"] },
+   { letters: ["П", "Р", "С", "Т", "И", "У", "Я", "Б", "Г", "О", "Ы", "Ч", "Э", "З"], words: ["БРЯЗ", "БРИЗ", "ЗОСЭ", "ИПРУ", "УГПТ", "ПРСТ"] },
+   { letters: ["С", "Т", "В", "О", "Ь", "Я", "Ы", "Ф", "Р", "Ш", "П", "Ц", "З"], words: ["ФОРТ", "ШПОР", "СТВР", "ШПТЦ", "ПТИЦ", "ВОРС"]  },
+   { letters: ["Р", "Ч", "А", "Т", "К", "И", "В", "Я", "Ф", "З", "П", "Г", "Ш", "У"], words: ["ПРИЗ", "ГРУШ", "ШПУГ", "ЯЗВА", "ГРЯЗ", "АТКУ", "ФУТП"] },
+   { letters: ["С", "Т", "Р", "У", "К", "Ж", "А", "М", "Е", "Й", "Н", "Ч", "Т"], words: ["РУКА", "МЕКУ", "ЙУМА", "СТУЖ", "ЕРАЙ", "ЧЖУМ", "УЙМА", "ТЕЙЧ"] }
+
+];
+
+// Функция генерации случайных чисел с проверкой на пересечение
+function generateNonOverlappingWords(N, words) {
+    let positions = []; // Массив для хранения позиций слов
+
+    // Функция для проверки пересечения
+    function isNonOverlapping(start, length) {
+        for (let pos of positions) {
+            let [existingStart, existingLength] = pos;
+            // Проверка пересечения
+            if ((start >= existingStart && start < existingStart + existingLength) || 
+                (start + length > existingStart && start + length <= existingStart + existingLength)) {
+                return false; // Пересечение найдено
+            }
+        }
+        return true; // Пересечений нет
+    }
+
+    // Для каждого слова и его количества
+    for (let word of words) {
+        let [length, count] = word;
+
+        for (let i = 0; i < count; i++) {
+            let placed = false;
+
+            // Пытаемся найти место для каждого слова
+            while (!placed) {
+                let start = Math.floor(Math.random() * (N - length + 1)); // Генерируем случайную позицию для начала слова
+
+                // Если позиция не перекрывается, добавляем её
+                if (isNonOverlapping(start, length)) {
+                    positions.push([start, length]); // Добавляем слово с его позицией
+                    placed = true;
+                }
+            }
+        }
+    }
+
+    return positions;
+}
+
+// Функция генерации стимулов
+function generateStimuli(totalStimuli, letters) {
+    let stimuli = Array(totalStimuli).fill(null); // Инициализируем массив стимулов
+    let correctResponseIndices = []; // Массив для хранения индексов правильных ответов
+
+    // Количество правильных и неправильных слов
+    let correctSequencesCount = Math.ceil(totalStimuli * 0.07); // 7% для "ЖУК"
+    let incorrectSequencesCount = Math.ceil(totalStimuli * 0.2); // 20% для "ЖУ" и "УК"
+    let singleLetterCount = Math.ceil(totalStimuli * 0.13); // 13% для букв Ж, У, К
+
+    // Генерация позиций для слов
+    let wordPositions = generateNonOverlappingWords(totalStimuli, [
+        [3, correctSequencesCount], // Правильные слова "ЖУК" длины 3
+        [2, incorrectSequencesCount], // Неправильные слова "ЖУ" и "УК" длины 2
+    ]);
+
+    // Генерация позиций для символов длины 1 (Ж, У, К)
+    let singleLetterPositions = generateNonOverlappingWords(totalStimuli, [
+        [1, singleLetterCount], // 13% для символов длины 1
+    ]);
+
+    // Заполнение стимулов
+    for (let [start, length] of wordPositions) {
+        if (length === 3) {
+            // Правильное слово "ЖУК"
+            stimuli[start] = { stimulus: '<div style="font-size:60px;">Ж</div>', correct_response: null };
+            stimuli[start + 1] = { stimulus: '<div style="font-size:60px;">У</div>', correct_response: null };
+            stimuli[start + 2] = { stimulus: '<div style="font-size:60px;">К</div>', correct_response: " " };
+
+            // Сохраняем индекс правильного ответа
+            correctResponseIndices.push(start + 2); // Индекс буквы "К"
+        } else if (length === 2) {
+            // Неправильное слово "ЖУ" или "УК"
+            let randomWord = Math.random() < 0.5 ? "ЖУ" : "УК"; // Рандомно выбираем "ЖУ" или "УК"
+            for (let i = 0; i < 2; i++) {
+                stimuli[start + i] = { stimulus: `<div style="font-size:60px;">${randomWord[i]}</div>`, correct_response: null };
+            }
+        }
+    }
+
+    // Заполнение стимулов для букв "Ж", "У", "К", проверка на образование "ЖУК"
+    let lettersArray = ['Ж', 'У', 'К'];
+    for (let i = 0; i < singleLetterPositions.length; i++) {
+        let start = singleLetterPositions[i][0];
+
+        // Проверяем, не образуется ли слово "ЖУК"
+        if (stimuli[start] === 'Ж') {
+            // Проверяем, не следует ли после Ж буква У, а за У не стоит К
+            if (stimuli[start + 1] !== 'У' || stimuli[start + 2] !== 'К') {
+                stimuli[start] = { stimulus: '<div style="font-size:60px;">Ж</div>', correct_response: null };
+            } else {
+                continue; // Если образуется "ЖУК", продолжаем
+            }
+        }
+        // Для У и К применяем аналогичную логику
+        else if (stimuli[start] === 'У') {
+            if (stimuli[start - 1] !== 'Ж' || stimuli[start + 1] !== 'К') {
+                stimuli[start] = { stimulus: '<div style="font-size:60px;">У</div>', correct_response: null };
+            } else {
+                continue;
+            }
+        } else if (stimuli[start] === 'К') {
+            if (stimuli[start - 2] !== 'Ж' || stimuli[start - 1] !== 'У') {
+                stimuli[start] = { stimulus: '<div style="font-size:60px;">К</div>', correct_response: null };
+            } else {
+                continue;
+            }
+        }
+    }
+
+    // Заполняем оставшиеся стимулы случайными буквами
+    for (let i = 0; i < totalStimuli; i++) {
+        if (stimuli[i] === null) {
+            let randomLetter = letters[Math.floor(Math.random() * letters.length)];
+            stimuli[i] = { stimulus: `<div style="font-size:60px;">${randomLetter}</div>`, correct_response: null };
+        }
+    }
+
+    return { stimuli, correctResponseIndices };
+}
+
+
+// Список букв
+var letters = ["А", "М", "И", "Х"];
+var TestTime = 1000*60*0.5 // время выполнения в мс, 7 минут
+
+// Этап выбора теста
+var choose_test = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: `<p>Выберите тест:</p>`,
+  choices: ["Лёгкий", "Средний", "Сложный"],
+  on_finish: function (data) {
+    // Сохраняем выбор теста
+    if (data.response == 0) {
+      Expo = 1000;
+      Gap = 0000;
+      StimulNumber =  TestTime/(Expo + Gap);; // Лёгкий: меньше стимулов
+    } else if (data.response == 1) {
+      Expo = 500;
+      Gap = 000; 
+      StimulNumber = TestTime/(Expo + Gap); // Средний: стандартные параметры
+    } else if (data.response == 2) {
+      Expo = 300;
+      Gap = 000; 
+      StimulNumber = TestTime/(Expo + Gap);// Сложный: больше стимулов и последовательностей
+    }
+  },
+};
+timeline.push(choose_test);
+
+// Приветственное сообщение
+var welcome = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: "Добро пожаловать в эксперимент. Нажмите любую клавишу, чтобы начать.",
+};
+timeline.push(welcome);
+
+// Инструкции
+var instructions = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: ` 
+    <p>В этом эксперименте на экране будут появляться буквы.</p>
+    <p>Если вы видите последовательность <strong>"ЖУК"</strong>, нажмите пробел как можно быстрее.</p>
+    <p>Нажмите любую клавишу, чтобы начать.</p>
+  `,
+  post_trial_gap: 1000,
+};
+timeline.push(instructions);
+
+// Генерация последовательности стимулов
+var test_stimuli = null;
+var correctKIndices = []; // Переменная для хранения индексов правильных ответов
+
+// Этап подготовки стимулов перед тестом
+timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: "Готовим тест... Нажмите любую клавишу для продолжения.",
+  on_finish: function () {
+    let stimuliData = generateStimuli(StimulNumber, letters);
+    test_stimuli = stimuliData.stimuli;
+    correctKIndices = stimuliData.correctResponseIndices; // Сохраняем индексы правильных ответов
+  },
+});
+
+var test = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: jsPsych.timelineVariable("stimulus"),
+  choices: [" "],
+  trial_duration: function () {
+    return Expo; // Возвращаем текущее значение Expo
+  },
+  post_trial_gap: function () {
+    return Gap; // Возвращаем текущее значение Gap
+  },
+  data: {
+    task: "response",
+    correct_response: jsPsych.timelineVariable("correct_response"),
+  },
+  on_finish: function (data) {
+    if (data.correct_response === null) {
+      data.correct = data.response === null;
+    } else {
+      data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+    }
+  },
+};
+
+
+
+// Процедура теста
+var test_procedure = {
+  timeline: [test],
+  timeline_variables: [], // Пусто на момент инициализации
+  randomize_order: false, // Фиксированный порядок
+};
+
+// Перед началом теста обновляем `timeline_variables`
+timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: "Тест начинается! Нажмите любую клавишу.",
+  on_finish: function () {
+    test_procedure.timeline_variables = test_stimuli; // Передаём данные стимулов
+  },
+});
+
+timeline.push(test_procedure);
+
+// Дебрифинг
+var debrief_block = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: function () {
+    var trials = jsPsych.data.get().filter({ task: "response" });
+
+    console.log("Детализация ответов по каждому стимулу:");
+    trials.values().forEach((trial, index) => {
+      const stimulus = trial.stimulus.replace(/<\/?[^>]+(>|$)/g, ""); // Убираем HTML-теги
+      const responseStatus = trial.correct
+        ? "Правильный"
+        : trial.response === null
+        ? "Нет ответа"
+        : "Неправильный";
+      const responseTime = trial.rt !== null && trial.rt !== undefined ? `${trial.rt} мс` : "нет времени";
+
+      console.log(`Стимул ${index + 1}: ${stimulus}`);
+      console.log(`Ответ пользователя: ${responseStatus}`);
+      console.log(`Время ответа: ${responseTime}`);
+    });
+
+    // Подсчёт правильных ответов
+    var correctResponses = correctKIndices.filter((index) => {
+      var trial = trials.values()[index];
+      return trial && trial.correct === true;
+    }).length;
+
+    // Подсчёт ложных срабатываний
+    var falseAlarms = trials.values().reduce((count, trial, index) => {
+      if (trial.response !== null && !correctKIndices.includes(index)) {
+        count++;
+      }
+      return count;
+    }, 0);
+
+    // Подсчёт точности
+    var accuracy = Math.round((correctResponses / correctKIndices.length) * 100);
+
+    // Среднее время реакции для правильных ответов
+    var correctRTs = correctKIndices
+      .map((index) => trials.values()[index]?.rt)
+      .filter((rt) => rt !== null && rt !== undefined);
+    var averageCorrectRT = correctRTs.length > 0
+      ? Math.round(correctRTs.reduce((a, b) => a + b, 0) / correctRTs.length)
+      : "нет данных";
+
+    // Среднее время реакции для ложных срабатываний
+    var falseAlarmRTs = trials.values()
+      .filter((trial, index) => trial.response !== null && !correctKIndices.includes(index))
+      .map((trial) => trial.rt)
+      .filter((rt) => rt !== null && rt !== undefined);
+    var averageFalseAlarmRT = falseAlarmRTs.length > 0
+      ? Math.round(falseAlarmRTs.reduce((a, b) => a + b, 0) / falseAlarmRTs.length)
+      : "нет данных";
+
+    return `<p>Вы ответили правильно в ${accuracy}% случаев.</p>
+      <p>Ложные срабатывания: ${falseAlarms}.</p>
+      <p>Среднее время реакции для правильных ответов: ${averageCorrectRT} мс.</p>
+      <p>Среднее время реакции для ложных срабатываний: ${averageFalseAlarmRT} мс.</p>
+      <p>Нажмите любую клавишу, чтобы завершить эксперимент. Спасибо!</p>`;
+  },
+};
+timeline.push(debrief_block);
+
+
+
+// Запуск эксперимента
+jsPsych.run(timeline);
