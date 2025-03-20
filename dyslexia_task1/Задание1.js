@@ -71,7 +71,7 @@ function generateStimuli(totalStimuli, targetLetters, targetCount, letterPool, c
         
         let fileName = `${letter.toLowerCase()} ${config.difficultyLetter}.png`;
         let filePath = `letters/${config.difficultyFolder}/${encodeURIComponent(fileName)}`;
-        
+        console.log(filePath);
         let stimulus = config.useDistorted 
             ? `<img src="${filePath}" style="width: 80px; height: auto;" onerror="console.error('Ошибка загрузки:', this.src)">`
             : `<div style="font-size:60px;">${letter}</div>`;

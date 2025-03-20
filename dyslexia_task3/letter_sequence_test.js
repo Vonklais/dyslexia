@@ -50,7 +50,10 @@ function generateSequence(length) {
 // Функция генерации пути к изображению
 function getImagePath(letter) {
     let fileName = `${letter.toLowerCase()} ${difficultyLetter}.png`;
-    return `letters/${difficultyFolder}/${encodeURIComponent(fileName)}`;
+    let filepath = `letters/${difficultyFolder}/${encodeURIComponent(fileName)}`
+    console.log(filepath);
+
+    return filepath;
 
 }
 
