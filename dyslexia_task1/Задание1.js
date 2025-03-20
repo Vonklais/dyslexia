@@ -6,16 +6,16 @@
 const myDict = {
     trainingTime: 20000,      // Длительность тренировочного этапа (в мс)
     testTime: 1000 * 60 * 0.5,// Длительность теста (в мс, 30 секунд)
-    lettersDiff: 1,           // Сложность набора букв
+    lettersDiff: 2,           // Сложность набора букв
     lettersNum: 2,            // Число целевых букв
     exposure: 1000,           // Экспозиция (в мс)
     gap: 1000,                // Задержка между стимулами (в мс)
-    letterCorruption: 1       // Степень повреждения букв (0 - не поврежденные, 1 и выше - поврежденные)
+    letterCorruption: 0       // Степень повреждения букв (0 - не поврежденные, 1 и выше - поврежденные)
 };
 
 // Глобальные параметры
 const params = {
-    difficulty: [0.5, 1, 2, 1, 1],
+    difficulty: [0.5, 1, 2, 1, 0],
     letterPools: [
         ["О", "П", "В", "М", "Ы", "Ф", "И", "А", "Р", "У"],
         ["Й", "Ц", "Н", "З", "Ж", "А", "Ы", "Я", "Ч", "Ю"],
@@ -48,9 +48,9 @@ function getExperimentParams(difficulty) {
         lettersNum: myDict.lettersNum,
         exposureTime: myDict.exposure,
         interStimulusInterval: myDict.gap,
-        useDistorted: [false, true, true, true][difficulty[4]],
-        difficultyFolder: params.difficultyFolders[difficulty[4]],
-        difficultyLetter: params.difficultyLetters[difficulty[4]]
+        useDistorted: [false, true, true, true][myDict.letterCorruption],
+        difficultyFolder: params.difficultyFolders[myDict.letterCorruption],
+        difficultyLetter: params.difficultyLetters[myDict.letterCorruption]
     };
 }
 
@@ -141,29 +141,26 @@ function createFullTimeline() {
                     if (prevTrial && prevTrial.is_target && !prevTrial.responded && !data.is_target && rt > config.exposureTime) {
                         prevTrial.reaction_time = currentTime - prevTrial.stimulus_onset;
                         prevTrial.correct = true;
+                        prevTrial.delayed_correct = true; // Отмечаем ответ с задержкой
                         prevTrial.responded = true;
-                        data.correct = true;
-                        data.reaction_time = null;
-                        console.log("Ответ на предыдущий:", { is_target: prevTrial.is_target, correct: prevTrial.correct, rt: prevTrial.reaction_time });
+                        data.is_delayed_response = true; // Для текущего нецелевого
+                        data.correct = false;
+                        data.reaction_time = rt;
                     } else if (data.is_target) {
                         data.reaction_time = rt;
                         data.correct = true;
-                        console.log("Ответ на текущий целевой:", { is_target: data.is_target, correct: data.correct, rt: rt });
                     } else {
                         data.correct = false;
                         data.reaction_time = rt;
-                        console.log("Ошибочный ответ на нецелевой:", { is_target: data.is_target, correct: data.correct, rt: rt });
                     }
                 } else {
                     data.responded = false;
                     if (data.is_target) {
                         data.correct = false;
                         data.reaction_time = null;
-                        console.log("Пропуск целевого:", { is_target: data.is_target, correct: data.correct });
                     } else {
                         data.correct = true;
                         data.reaction_time = null;
-                        console.log("Корректное отсутствие на нецелевой:", { is_target: data.is_target, correct: data.correct });
                     }
                 }
             }
@@ -174,24 +171,55 @@ function createFullTimeline() {
 
     timeline.push(trainingTest);
 
+
     timeline.push({
         type: jsPsychHtmlKeyboardResponse,
         stimulus: function() {
-            let trials = jsPsych.data.get().filter({ phase: "training" });
-            let targetTrials = trials.filter({ is_target: true });
-            let correctTargetResponses = targetTrials.filter({ correct: true }).count();
-            let totalTargets = targetTrials.count();
-            let accuracy = totalTargets > 0 ? (correctTargetResponses / totalTargets * 100).toFixed(2) : 0;
-            experimentState.trainingAccuracy = parseFloat(accuracy);
-
-            let rtSum = targetTrials.values().reduce((sum, t) => sum + (t.reaction_time || 0), 0);
-            let rtCount = targetTrials.filter(t => t.reaction_time !== null).count();
+            let trials = jsPsych.data.get().filter({ phase: "training" }).values();
+        
+            // Массивы targets и responses
+            let targets = trials.map(trial => trial.is_target ? 1 : 0);
+            let responses = trials.map(trial => trial.responded ? 1 : 0);
+        
+            // Переменные для подсчёта
+            let correctResponses = 0;
+            let falseAlarms = 0;
+            let totalTargets = targets.filter(t => t === 1).length;
+            let rtSum = 0; // Сумма времён реакции
+            let rtCount = 0; // Количество правильных ответов с временем
+        
+            // Цикл по всем стимулам
+            for (let i = 0; i < trials.length; i++) {
+                if (targets[i] === 1 && responses[i] === 1) {
+                    // Немедленный правильный ответ
+                    correctResponses++;
+                    rtSum += trials[i].reaction_time;
+                    rtCount++;
+                } else if (targets[i] === 0 && responses[i] === 1) {
+                    // Ответ дан на нецелевой стимул
+                    if (i > 0 && targets[i - 1] === 1 && responses[i - 1] === 0) {
+                        // Правильный ответ с задержкой для предыдущего целевого стимула
+                        correctResponses++;
+                        // Время реакции = время ответа на текущем + totalDuration
+                        let delayedRt = trials[i].reaction_time + totalDuration;
+                        rtSum += delayedRt;
+                        rtCount++;
+                    } else {
+                        // Ложный ответ
+                        falseAlarms++;
+                    }
+                }
+            }
+        
+            // Вычисляем среднее время реакции
             let avgRt = rtCount > 0 ? (rtSum / rtCount).toFixed(2) : "N/A";
-
-            console.log("Training results:", { correctTargetResponses, totalTargets, accuracy });
+        
+            // Вычисляем долю правильных ответов
+            let accuracy = totalTargets > 0 ? (correctResponses / totalTargets * 100).toFixed(2) : 0;
+            experimentState.trainingAccuracy = accuracy;
             return `
-                <p>Тренировка завершена.</p>
-                <p>Правильные ответы на целевые стимулы: ${correctTargetResponses} / ${totalTargets} (${accuracy}%)</p>
+                <p>Доля правильных ответов: ${accuracy}%</p>
+                <p>Число ложных реакций: ${falseAlarms}</p>
                 <p>Среднее время реакции: ${avgRt} мс</p>
                 <p>${accuracy >= 30 ? 'Вы прошли тренировку! Нажмите клавишу для основного теста.' : 'Точность ниже 30%. Тест завершен.'}</p>
             `;
@@ -249,32 +277,29 @@ function createFullTimeline() {
                         if (data.response === " ") {
                             data.responded = true;
                             const rt = data.rt;
-                            if (prevTrial && prevTrial.is_target && !prevTrial.responded && !data.is_target && rt > config.exposureTime) {
+                            if (prevTrial && prevTrial.is_target && !prevTrial.responded && !data.is_target) {
                                 prevTrial.reaction_time = currentTime - prevTrial.stimulus_onset;
                                 prevTrial.correct = true;
+                                prevTrial.delayed_correct = true; // Отмечаем ответ с задержкой
                                 prevTrial.responded = true;
-                                data.correct = true;
-                                data.reaction_time = null;
-                                console.log("Ответ на предыдущий:", { is_target: prevTrial.is_target, correct: prevTrial.correct, rt: prevTrial.reaction_time });
+                                data.is_delayed_response = true; // Для текущего нецелевого
+                                data.correct = false;
+                                data.reaction_time = rt;
                             } else if (data.is_target) {
                                 data.reaction_time = rt;
                                 data.correct = true;
-                                console.log("Ответ на текущий целевой:", { is_target: data.is_target, correct: data.correct, rt: rt });
                             } else {
                                 data.correct = false;
                                 data.reaction_time = rt;
-                                console.log("Ошибочный ответ на нецелевой:", { is_target: data.is_target, correct: data.correct, rt: rt });
                             }
                         } else {
                             data.responded = false;
                             if (data.is_target) {
                                 data.correct = false;
                                 data.reaction_time = null;
-                                console.log("Пропуск целевого:", { is_target: data.is_target, correct: data.correct });
                             } else {
                                 data.correct = true;
                                 data.reaction_time = null;
-                                console.log("Корректное отсутствие на нецелевой:", { is_target: data.is_target, correct: data.correct });
                             }
                         }
                     }
@@ -285,20 +310,53 @@ function createFullTimeline() {
             {
                 type: jsPsychHtmlKeyboardResponse,
                 stimulus: function() {
-                    let trials = jsPsych.data.get().filter({ phase: "main" });
-                    let targetTrials = trials.filter({ is_target: true });
-                    let correctTargetResponses = targetTrials.filter({ correct: true }).count();
-                    let totalTargets = targetTrials.count();
-                    let accuracy = totalTargets > 0 ? (correctTargetResponses / totalTargets * 100).toFixed(2) : 0;
-
-                    let rtSum = targetTrials.values().reduce((sum, t) => sum + (t.reaction_time || 0), 0);
-                    let rtCount = targetTrials.filter(t => t.reaction_time !== null).count();
+                    let trials = jsPsych.data.get().filter({ phase: "main" }).values();
+        
+                    // Массивы targets и responses
+                    let targets = trials.map(trial => trial.is_target ? 1 : 0);
+                    let responses = trials.map(trial => trial.responded ? 1 : 0);
+        
+                    // Переменные для подсчёта
+                    let correctResponses = 0;
+                    let falseAlarms = 0;
+                    let totalTargets = targets.filter(t => t === 1).length;
+                    let rtSum = 0; // Сумма времён реакции
+                    let rtCount = 0; // Количество правильных ответов с временем
+        
+                    // Цикл по всем стимулам
+                    for (let i = 0; i < trials.length; i++) {
+                        if (targets[i] === 1 && responses[i] === 1) {
+                            // Немедленный правильный ответ
+                            correctResponses++;
+                            rtSum += trials[i].reaction_time;
+                            rtCount++;
+                        } else if (targets[i] === 0 && responses[i] === 1) {
+                            // Ответ дан на нецелевой стимул
+                            if (i > 0 && targets[i - 1] === 1 && responses[i - 1] === 0) {
+                                // Правильный ответ с задержкой для предыдущего целевого стимула
+                                correctResponses++;
+                                // Время реакции = время ответа на текущем + totalDuration
+                                let delayedRt = trials[i].reaction_time + totalDuration;
+                                rtSum += delayedRt;
+                                rtCount++;
+                            } else {
+                                // Ложный ответ
+                                falseAlarms++;
+                            }
+                        }
+                    }
+        
+                    // Вычисляем среднее время реакции
                     let avgRt = rtCount > 0 ? (rtSum / rtCount).toFixed(2) : "N/A";
-
-                    console.log("Main results:", { correctTargetResponses, totalTargets, accuracy });
+        
+                    // Вычисляем долю правильных ответов
+                    let accuracy = totalTargets > 0 ? (correctResponses / totalTargets * 100).toFixed(2) : 0;
+        
+                    // Выводим результаты
                     return `
                         <p>Тест завершён.</p>
-                        <p>Правильные ответы на целевые стимулы: ${correctTargetResponses} / ${totalTargets} (${accuracy}%)</p>
+                        <p>Доля правильных ответов: ${accuracy}%</p>
+                        <p>Число ложных реакций: ${falseAlarms}</p>
                         <p>Среднее время реакции: ${avgRt} мс</p>
                         <p>Нажмите любую клавишу, чтобы завершить.</p>
                     `;
@@ -317,6 +375,7 @@ function createFullTimeline() {
             let filteredResults = jsPsych.data.get().filter({ trial_type: "html-keyboard-response" }).values();
             console.log("🔹 Итоговые результаты:", filteredResults);
             document.body.innerHTML = "<pre>" + JSON.stringify(filteredResults, null, 2) + "</pre>";
+            window.location.href = "../Mainhtml.html";
         }
     });
 

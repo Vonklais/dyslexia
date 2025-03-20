@@ -7,9 +7,9 @@ const myDict = {
     trainingTime: 20000,      // Длительность тренировочного этапа (в мс)
     testTime: 1000 * 60 * 0.5,// Длительность теста (в мс, 30 секунд)
     wordLength: 3,            // Длина слова в символах (будет переопределено в эксперименте)
-    exposure: 1000,           // Экспозиция (в мс)
-    gap: 1000,                // Задержка между стимулами (в мс)
-    letterCorruption: 1       // Степень повреждения букв (0 - не поврежденные, 1 и выше - поврежденные)
+    exposure: 300,           // Экспозиция (в мс)
+    gap: 400,                // Задержка между стимулами (в мс)
+    letterCorruption: 0       // Степень повреждения букв (0 - не поврежденные, 1 и выше - поврежденные)
 };
 
 var difficultyFolder = ["", "easy", "medium", "hard"][myDict['lettercorruption']];
@@ -425,29 +425,54 @@ function createFullTimeline() {
             {
                 type: jsPsychHtmlKeyboardResponse,
                 stimulus: function() {
-                    let trials = jsPsych.data.get().filter({ phase: "main" });
-                    let correctResponses = trials.filter({ is_target: true, correct: true }).count();
-                    let prevCorrect = trials.filter({ prev_correct: true }).count();
-                    let allCorrectResponses = correctResponses + prevCorrect;
-                    let totalTargets = trials.filter({ is_target: true }).count();
-                    let accuracy = totalTargets > 0 ? (allCorrectResponses / totalTargets * 100).toFixed(2) : 0;
-
-                    let targetTrials = trials.filter({ is_target: true });
-                    let rtSum = targetTrials.values().reduce((sum, t) => sum + (t.reaction_time || 0), 0);
-                    let rtCount = targetTrials.filter(t => t.reaction_time !== null).count();
+                    let trials = jsPsych.data.get().filter({ phase: "main" }).values();
+        
+                    // Массивы targets и responses
+                    let targets = trials.map(trial => trial.is_target ? 1 : 0);
+                    let responses = trials.map(trial => trial.response ? 1 : 0);
+                    console.log(targets)
+                    // Переменные для подсчёта
+                    let correctResponses = 0;
+                    let falseAlarms = 0;
+                    let totalTargets = targets.filter(t => t === 1).length;
+                    let rtSum = 0; // Сумма времён реакции
+                    let rtCount = 0; // Количество правильных ответов с временем
+        
+                    // Цикл по всем стимулам
+                    for (let i = 0; i < trials.length; i++) {
+                        if (targets[i] === 1 && responses[i] === 1) {
+                            // Немедленный правильный ответ
+                            correctResponses++;
+                            rtSum += trials[i].reaction_time;
+                            rtCount++;
+                        } else if (targets[i] === 0 && responses[i] === 1) {
+                            // Ответ дан на нецелевой стимул
+                            if (i > 0 && targets[i - 1] === 1 && responses[i - 1] === 0) {
+                                // Правильный ответ с задержкой для предыдущего целевого стимула
+                                correctResponses++;
+                                // Время реакции = время ответа на текущем + totalDuration
+                                let delayedRt = trials[i].reaction_time + totalDuration;
+                                rtSum += delayedRt;
+                                rtCount++;
+                            } else {
+                                // Ложный ответ
+                                falseAlarms++;
+                            }
+                        }
+                    }
+        
+                    // Вычисляем среднее время реакции
                     let avgRt = rtCount > 0 ? (rtSum / rtCount).toFixed(2) : "N/A";
-
-                    let falseAlarms = trials.filter(t => t.response !== null && !t.is_target).count();
-                    let falseAlarmRTs = trials.filter(t => t.response !== null && !t.is_target).values().map(t => t.reaction_time).filter(rt => rt !== null);
-                    let avgFalseAlarmRT = falseAlarmRTs.length > 0 ? (falseAlarmRTs.reduce((a, b) => a + b, 0) / falseAlarmRTs.length).toFixed(2) : "N/A";
-
-                    console.log("Main results:", { correctResponses, prevCorrect, allCorrectResponses, totalTargets, accuracy, falseAlarms });
+        
+                    // Вычисляем долю правильных ответов
+                    let accuracy = totalTargets > 0 ? (correctResponses / totalTargets * 100).toFixed(2) : 0;
+        
+                    // Выводим результаты
                     return `
                         <p>Тест завершён.</p>
-                        <p>Правильные ответы: ${allCorrectResponses} / ${totalTargets} (${accuracy}%)</p>
-                        <p>Ложные срабатывания: ${falseAlarms}</p>
-                        <p>Среднее время реакции для правильных ответов: ${avgRt} мс</p>
-                        <p>Среднее время реакции для ложных срабатываний: ${avgFalseAlarmRT} мс</p>
+                        <p>Доля правильных ответов: ${accuracy}%</p>
+                        <p>Число ложных реакций: ${falseAlarms}</p>
+                        <p>Среднее время реакции: ${avgRt} мс</p>
                         <p>Нажмите любую клавишу, чтобы завершить.</p>
                     `;
                 }
@@ -465,6 +490,7 @@ function createFullTimeline() {
             let filteredResults = jsPsych.data.get().filter({ trial_type: "html-keyboard-response" }).values();
             console.log("🔹 Итоговые результаты:", filteredResults);
             document.body.innerHTML = "<pre>" + JSON.stringify(filteredResults, null, 2) + "</pre>";
+            window.location.href = "../Mainhtml.html"; // Перенаправление на Mainhtml.html
         }
     });
 

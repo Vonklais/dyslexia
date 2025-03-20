@@ -2,21 +2,15 @@
 var jsPsych = initJsPsych({
   override_safe_mode: true,
   on_finish: function () {
-    // Фильтруем только результаты ответов пользователя (убираем стимулы)
     let filteredResults = jsPsych.data.get().filter({ trial_type: "survey-text" }).values();
-
-    // Выводим очищенные данные в консоль
     console.log("🔹 Итоговые результаты (только ответы):", filteredResults);
-
-    // Показываем только очищенные данные на экране в формате JSON
     document.body.innerHTML = "<pre>" + JSON.stringify(filteredResults, null, 2) + "</pre>";
   },
 });
 
-
 // Глобальные переменные
 var timeline = [];
-var globalCorrectSequence = ""; // для хранения корректной последовательности слогов
+var globalCorrectSequence = ""; // Для хранения корректной последовательности слогов
 var minYdistance = 10; // Минимальное расстояние по вертикали
 var maxYdistance = 50; // Максимальное расстояние по вертикали
 
@@ -26,30 +20,24 @@ timeline.push({
   stimulus: "Добро пожаловать в эксперимент. Нажмите любую клавишу, чтобы начать.",
 });
 
-// Глобальные переменные (параметры эксперимента)
-//число повторений, Количество букв в слоге, Количество слогов в слове, длительность стимула и задержки, расстояние, сложность букв
-
+// Глобальные параметры эксперимента
 const myDict = {
-  numRepetit: 2,//число повторений
-  numletter: 2,//число букв в слоге
-  numSyllables:3,//число слогов
-  expos: 1000,//экспозиция
-  gap:1000,//задержка
-  distanceDiff: 2,//сложность по расстоянию
-  lettercorruption:1,//степень повреждения букв, 0 - не повреждённые
+  numRepetit: 3,      // Число повторений
+  numletter: 2,        // Число букв в слоге
+  numSyllables: 3,     // Число слогов
+  expos: 300,          // Экспозиция
+  gap: 400,            // Задержка
+  distanceDiff: 2,     // Сложность по расстоянию
+  lettercorruption: 0, // Степень повреждения букв
 };
 
-
-
-
-
 var numRepetitions = myDict['numRepetit'];
-var syllableLength = myDict['numletter']; // Количество букв в слоге (2 или 3)
-var numSyllables = myDict['numSyllables']; // Количество слогов в слове
-var Expo =  myDict['expos'];
-var Gap =  myDict['gap'];
-var minDistance = [10, 25, 37][ myDict['distanceDiff']];
-var maxDistance = [20, 35, 52][myDict['distanceDiff']];
+var syllableLength = myDict['numletter'];
+var numSyllables = myDict['numSyllables'];
+var Expo = myDict['expos'];
+var Gap = myDict['gap'];
+var minDistance = [10, 25, 35][myDict['distanceDiff']];
+var maxDistance = [20, 35, 40][myDict['distanceDiff']];
 var useDistortedLetters = [false, true, true, true][myDict['lettercorruption']];
 var difficultyFolder = ["", "easy", "medium", "hard"][myDict['lettercorruption']];
 var difficultyLetter = ["", "легкий", "средний", "сложный"][myDict['lettercorruption']];
@@ -65,12 +53,10 @@ var Glasn = ["А", "Е", "Ё", "И", "О", "У", "Ы", "Э", "Ю", "Я"];
 // Функция генерации слога
 function generateSyllable(length) {
   if (length === 2) {
-    // Слог: согласная + гласная
     let c = Soglasn[Math.floor(Math.random() * Soglasn.length)];
     let v = Glasn[Math.floor(Math.random() * Glasn.length)];
     return [c, v];
   } else if (length === 3) {
-    // Слог: согласная + гласная + согласная
     let c1 = Soglasn[Math.floor(Math.random() * Soglasn.length)];
     let v = Glasn[Math.floor(Math.random() * Glasn.length)];
     let c2 = Soglasn[Math.floor(Math.random() * Soglasn.length)];
@@ -79,28 +65,27 @@ function generateSyllable(length) {
 }
 
 // Функция для формирования пути к изображению
-function getImagePath(syllable) {
-  return `letters/${difficultyFolder}/${syllable.toLowerCase('ru')} ${difficultyLetter}.png`;
+function getImagePath(letter) {
+  return `letters/${difficultyFolder}/${letter.toLowerCase('ru')} ${difficultyLetter}.png`;
 }
 
-// Функция генерации одного теста (с флагом isTraining)
-// Здесь вместо букв генерируются слоги
+// Функция генерации одного теста
 function generateTestTrial(isTraining = false) {
   // Генерация последовательности слогов
   var sequence = [];
   for (var i = 0; i < numSyllables; i++) {
     sequence.push(generateSyllable(syllableLength));
   }
-  
+
   // Генерация случайных позиций для каждого слога
   function getRandomPosition() {
     return {
-      x: Math.floor(Math.random() * 81) + 10, // число от 10 до 90
+      x: Math.floor(Math.random() * 81) + 10,
       y: Math.floor(Math.random() * 81) + 10
     };
   }
   let positions = sequence.map(() => getRandomPosition());
-  
+
   // Генерация тестовых этапов для показа каждого слога
   let testTrials = sequence.map((syllable, index) => {
     let stimulusContent;
@@ -128,36 +113,61 @@ function generateTestTrial(isTraining = false) {
       post_trial_gap: Gap,
     };
   });
-  
-  // Формирование корректной последовательности (без пробелов)
+
+  // Формирование корректной последовательности (без пробелов для сравнения)
   var correctSequence = sequence.map(s => s.join("")).join("");
-  
-  return {
-    timeline: [
-      ...testTrials,
-      {
-        type: jsPsychSurveyText,
-        questions: [
-          { prompt: "Введите последовательность слогов, разделённых пробелом:", name: "user_input" }
-        ],
-        button_label: "Подтвердить",
-        on_finish: function (data) {
-          var userResponse = data.response.user_input.trim().toUpperCase().replace(/\s+/g, "");
-          var isCorrect = userResponse === correctSequence;
-          
-          jsPsych.data.addDataToLastTrial({
-            correct_sequence: correctSequence,
-            user_response: userResponse,
-            is_correct: isCorrect,
-            phase: isTraining ? "training" : "experiment"
-          });
-          
-          if (isTraining) {
-            trainingPassed = isCorrect; // Завершаем тренировку только при правильном ответе
-          }
+  var correctSequenceDisplay = sequence.map(s => s.join("")).join(" "); // С пробелами для отображения
+
+  let trialTimeline = [
+    ...testTrials,
+    {
+      type: jsPsychSurveyText,
+      questions: [
+        { prompt: "Введите последовательность слогов, разделённых пробелом:", name: "user_input" }
+      ],
+      button_label: "Подтвердить",
+      on_finish: function (data) {
+        var userResponse = data.response.user_input.trim().toUpperCase().replace(/\s+/g, ""); // Убираем лишние пробелы для сравнения
+        var isCorrect = userResponse === correctSequence;
+
+        jsPsych.data.addDataToLastTrial({
+          correct_sequence: correctSequence,
+          correct_sequence_display: correctSequenceDisplay, // Для отображения с пробелами
+          user_response: userResponse,
+          is_correct: isCorrect,
+          phase: isTraining ? "training" : "experiment"
+        });
+
+        if (isTraining) {
+          trainingPassed = isCorrect;
         }
       }
-    ]
+    }
+  ];
+
+  // Добавляем обратную связь только для основного теста
+  if (!isTraining) {
+    trialTimeline.push({
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function () {
+        let lastTrial = jsPsych.data.get().last(1).values()[0];
+        let isCorrect = lastTrial.is_correct;
+        let userResponse = lastTrial.user_response.match(/.{1,2}/g)?.join(" ") || lastTrial.user_response; // Форматируем ответ пользователя с пробелами
+        let correctSequenceDisplay = lastTrial.correct_sequence_display;
+        return `
+          <p>Ваш ответ: <strong>${userResponse}</strong></p>
+          <p>Правильная последовательность: <strong>${correctSequenceDisplay}</strong></p>
+          <p>Результат: ${isCorrect ? "Правильно" : "Неправильно"}</p>
+          <p>Нажмите любую клавишу, чтобы продолжить.</p>
+        `;
+      },
+      choices: "ALL_KEYS",
+      post_trial_gap: 500,
+    });
+  }
+
+  return {
+    timeline: trialTimeline
   };
 }
 
@@ -192,6 +202,29 @@ var mainExperimentTimeline = {
 for (let i = 0; i < numRepetitions; i++) {
   mainExperimentTimeline.timeline.push(generateTestTrial(false));
 }
+
+// Добавляем финальный экран со статистикой
+mainExperimentTimeline.timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: function () {
+    let experimentTrials = jsPsych.data.get().filter({ phase: "experiment", trial_type: "survey-text" });
+    let totalResponses = experimentTrials.count();
+    let correctResponses = experimentTrials.filter({ is_correct: true }).count();
+    let accuracy = totalResponses > 0 ? (correctResponses / totalResponses * 100).toFixed(2) : 0;
+
+    return `
+      <p>Эксперимент завершён!</p>
+      <p>Всего последовательностей: ${totalResponses}</p>
+      <p>Правильных ответов: ${correctResponses}</p>
+      <p>Доля правильных ответов: ${accuracy}%</p>
+      <p>Нажмите любую клавишу, чтобы завершить.</p>
+    `;
+  },
+  choices: "ALL_KEYS",
+  on_finish: function () {
+    window.location.href = "../Mainhtml.html"; // Перенаправление на Mainhtml.html
+  },
+});
 
 // Запускаем тест: сначала тренировка, затем основной тест
 jsPsych.run([trainingTimeline, mainExperimentTimeline]);

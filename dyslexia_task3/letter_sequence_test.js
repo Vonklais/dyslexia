@@ -2,38 +2,28 @@
 var jsPsych = initJsPsych({
   override_safe_mode: true,
   on_finish: function () {
-    // Фильтруем только результаты ответов пользователя (убираем стимулы)
     let filteredResults = jsPsych.data.get().filter({ trial_type: "survey-text" }).values();
-
-    // Выводим очищенные данные
     console.log("🔹 Итоговые результаты (только ответы):", filteredResults);
-
-    // Показываем только очищенные данные
     jsPsych.data.displayData("json");
   },
 });
 
 // Глобальные переменные
-//число повторений, длина слова, длительность стимула и задержки, расстояние, сложность букв
-
 const myDict = {
-  numRepetit: 2,//число повторений
-  wordlength: 4,//длина слова в символах
-  expos: 1000,//экспозиция
-  gap:1000,//задержка
-  distanceDiff: 2,//сложность по расстоянию
-  lettercorruption:1,//степень повреждения букв, 0 - не повреждённые
+  numRepetit: 3, // Число повторений
+  wordlength: 4,  // Длина слова в символах
+  expos: 500,     // Экспозиция
+  gap: 500,       // Задержка
+  distanceDiff: 2,// Сложность по расстоянию
+  lettercorruption: 2, // Степень повреждения букв
 };
-
-
-
 
 var numRepetitions = myDict['numRepetit'];
 var Blenght = myDict['wordlength'];
 var Expo = myDict['expos'];
 var Gap = myDict['gap'];
-var minDistance = [10, 25, 37][myDict['distanceDiff']];
-var maxDistance = [20, 35, 52][myDict['distanceDiff']];
+var minDistance = [10, 25, 32][myDict['distanceDiff']];
+var maxDistance = [20, 32, 40][myDict['distanceDiff']];
 var useDistortedLetters = [false, true, true, true][myDict['lettercorruption']];
 var difficultyFolder = ["", "easy", "medium", "hard"][myDict['lettercorruption']];
 var difficultyLetter = ["", "легкий", "средний", "сложный"][myDict['lettercorruption']];
@@ -49,10 +39,9 @@ function generateSequence(length) {
 
 // Функция генерации пути к изображению
 function getImagePath(letter) {
-    let fileName = `${letter.toLowerCase('ru')} ${difficultyLetter}.png`;
-    let filepath = `letters/${difficultyFolder}/${encodeURIComponent(fileName)}`;
-    return filepath;
-
+  let fileName = `${letter.toLowerCase('ru')} ${difficultyLetter}.png`;
+  let filepath = `letters/${difficultyFolder}/${encodeURIComponent(fileName)}`;
+  return filepath;
 }
 
 // Функция генерации позиций
@@ -73,7 +62,7 @@ function getRandomPosition(previousX, previousY) {
   return { x: newX, y: newY };
 }
 
-// Функция генерации одного теста (с флагом isTraining)
+// Функция генерации одного теста
 function generateTestTrial(isTraining = false) {
   var sequence = generateSequence(Blenght);
   let positions = sequence.map(() => getRandomPosition(null, null));
@@ -88,31 +77,54 @@ function generateTestTrial(isTraining = false) {
     post_trial_gap: Gap,
   }));
 
-  return {
-    timeline: [
-      ...testTrials,
-      {
-        type: jsPsychSurveyText,
-        questions: [{ prompt: "Введите последовательность букв:", name: "user_input" }],
-        button_label: "Подтвердить",
-        on_finish: function (data) {
-          var userResponse = data.response.user_input.trim().toUpperCase();
-          var correctSequence = sequence.join("");
-          var isCorrect = userResponse === correctSequence;
+  let trialTimeline = [
+    ...testTrials,
+    {
+      type: jsPsychSurveyText,
+      questions: [{ prompt: "Введите последовательность букв:", name: "user_input" }],
+      button_label: "Подтвердить",
+      on_finish: function (data) {
+        var userResponse = data.response.user_input.trim().toUpperCase();
+        var correctSequence = sequence.join("");
+        var isCorrect = userResponse === correctSequence;
 
-          jsPsych.data.addDataToLastTrial({
-            correct_sequence: correctSequence,
-            user_response: userResponse,
-            is_correct: isCorrect,
-            phase: isTraining ? "training" : "experiment", // Отмечаем тренировку и тест
-          });
+        jsPsych.data.addDataToLastTrial({
+          correct_sequence: correctSequence,
+          user_response: userResponse,
+          is_correct: isCorrect,
+          phase: isTraining ? "training" : "experiment",
+        });
 
-          if (isTraining) {
-            trainingPassed = isCorrect; // Завершаем тренировку только при правильном ответе
-          }
-        },
+        if (isTraining) {
+          trainingPassed = isCorrect; // Завершаем тренировку только при правильном ответе
+        }
       },
-    ],
+    },
+  ];
+
+  // Добавляем обратную связь только для основного теста
+  if (!isTraining) {
+    trialTimeline.push({
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function () {
+        let lastTrial = jsPsych.data.get().last(1).values()[0];
+        let isCorrect = lastTrial.is_correct;
+        let userResponse = lastTrial.user_response;
+        let correctSequence = lastTrial.correct_sequence;
+        return `
+          <p>Ваш ответ: <strong>${userResponse}</strong></p>
+          <p>Правильная последовательность: <strong>${correctSequence}</strong></p>
+          <p>Результат: ${isCorrect ? "Правильно" : "Неправильно"}</p>
+          <p>Нажмите любую клавишу, чтобы продолжить.</p>
+        `;
+      },
+      choices: "ALL_KEYS",
+      post_trial_gap: 500,
+    });
+  }
+
+  return {
+    timeline: trialTimeline,
   };
 }
 
@@ -143,10 +155,33 @@ var mainExperimentTimeline = {
   ],
 };
 
-// **Добавляем основной тест на numRepetitions раз**
+// Добавляем основной тест на numRepetitions раз
 for (let i = 0; i < numRepetitions; i++) {
   mainExperimentTimeline.timeline.push(generateTestTrial(false));
 }
 
-// **Запускаем тест: сначала тренировка, затем основной тест**
+// Добавляем финальный экран со статистикой
+mainExperimentTimeline.timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: function () {
+    let experimentTrials = jsPsych.data.get().filter({ phase: "experiment", trial_type: "survey-text" });
+    let totalResponses = experimentTrials.count();
+    let correctResponses = experimentTrials.filter({ is_correct: true }).count();
+    let accuracy = totalResponses > 0 ? (correctResponses / totalResponses * 100).toFixed(2) : 0;
+
+    return `
+      <p>Эксперимент завершён!</p>
+      <p>Всего последовательностей: ${totalResponses}</p>
+      <p>Правильных ответов: ${correctResponses}</p>
+      <p>Доля правильных ответов: ${accuracy}%</p>
+      <p>Нажмите любую клавишу, чтобы завершить.</p>
+    `;
+  },
+  choices: "ALL_KEYS",
+  on_finish: function () {
+    window.location.href = "../Mainhtml.html"; // Перенаправление на Mainhtml.html
+  },
+});
+
+// Запускаем тест: сначала тренировка, затем основной тест
 jsPsych.run([trainingTimeline, mainExperimentTimeline]);
