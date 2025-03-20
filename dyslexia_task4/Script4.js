@@ -80,7 +80,7 @@ function generateSyllable(length) {
 
 // Функция для формирования пути к изображению
 function getImagePath(syllable) {
-  return `letters/${difficultyFolder}/${syllable} ${difficultyLetter}.png`;
+  return `letters/${difficultyFolder}/${syllable.toLowerCase('ru')} ${difficultyLetter}.png`;
 }
 
 // Функция генерации одного теста (с флагом isTraining)

@@ -84,7 +84,7 @@ function generateStimuli3(totalStimuli, letters) {
         const difficultyFolders = ["", "easy", "medium", "hard"];
         const difficultyLetters = ["", "легкий", "средний", "сложный"];
         const corruptionIndex = Math.min(myDict.letterCorruption, difficultyFolders.length - 1);
-        return `letters/${difficultyFolders[corruptionIndex]}/${letter} ${difficultyLetters[corruptionIndex]}.png`;
+        return `letters/${difficultyFolders[corruptionIndex]}/${letter.toLowerCase('ru')} ${difficultyLetters[corruptionIndex]}.png`;
     }
 
     for (let [start, length] of wordPositions) {

@@ -69,7 +69,7 @@ function generateStimuli(totalStimuli, targetLetters, targetCount, letterPool, c
             ? targetLetters[Math.floor(Math.random() * targetLetters.length)]
             : nonTargetLetters[Math.floor(Math.random() * nonTargetLetters.length)];
         
-        let fileName = `${letter.toLowerCase()} ${config.difficultyLetter}.png`;
+        let fileName = `${letter.toLowerCase('ru')} ${config.difficultyLetter}.png`;
         let filePath = `letters/${config.difficultyFolder}/${encodeURIComponent(fileName)}`;
         console.log(filePath);
         let stimulus = config.useDistorted 
