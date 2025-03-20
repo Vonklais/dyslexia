@@ -12,6 +12,9 @@ const myDict = {
     letterCorruption: 1       // Степень повреждения букв (0 - не поврежденные, 1 и выше - поврежденные)
 };
 
+var difficultyFolder = ["", "easy", "medium", "hard"][myDict['lettercorruption']];
+var difficultyLetter = ["", "легкий", "средний", "сложный"][myDict['lettercorruption']];
+
 // Состояние эксперимента
 const experimentState = {
     trainingAccuracy: 0,
@@ -80,18 +83,13 @@ function generateStimuli3(totalStimuli, letters) {
     ]);
     let singleLetterPositions = generateNonOverlappingWords(totalStimuli, [[1, singleLetterCount]]);
 
+   // Функция генерации пути к изображению
     function getImagePath(letter) {
-        const difficultyFolders = ["", "easy", "medium", "hard"];
-        const difficultyLetters = ["", "легкий", "средний", "сложный"];
-        const corruptionIndex = Math.min(myDict.letterCorruption, difficultyFolders.length - 1);
-        //return `letters/${difficultyFolders[corruptionIndex]}/${letter.toLowerCase('ru')} ${difficultyLetters[corruptionIndex]}.png`;
-
-        let fileName = `${letter.toLocaleLowerCase('ru')} ${difficultyLetters[corruptionIndex]}.png`;
-        let filepath = `letters/${difficultyFolders[corruptionIndex]}/${encodeURIComponent(fileName)}`;
+        let fileName = `${letter.toLowerCase('ru')} ${difficultyLetter}.png`;
+        let filepath = `letters/${difficultyFolder}/${encodeURIComponent(fileName)}`;
         return filepath;
 
-
-    }
+}
 
     for (let [start, length] of wordPositions) {
         if (length === 3) {
