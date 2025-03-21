@@ -5,12 +5,12 @@
 // Глобальная переменная с параметрами
 const myDict = {
     trainingTime: 20000,      // Длительность тренировочного этапа (в мс)
-    testTime: 1000 * 60 * 0.5,// Длительность теста (в мс, 30 секунд)
+    testTime: 1000 * 60 * 4,// Длительность теста (в мс, 30 секунд)
     lettersDiff: 2,           // Сложность набора букв
     lettersNum: 2,            // Число целевых букв
-    exposure: 1000,           // Экспозиция (в мс)
-    gap: 1000,                // Задержка между стимулами (в мс)
-    letterCorruption: 0       // Степень повреждения букв (0 - не поврежденные, 1 и выше - поврежденные)
+    exposure: 300,           // Экспозиция (в мс)
+    gap: 400,                // Задержка между стимулами (в мс)
+    letterCorruption: 1       // Степень повреждения букв (0 - не поврежденные, 1 и выше - поврежденные)
 };
 
 // Глобальные параметры
@@ -368,7 +368,7 @@ function createFullTimeline() {
     timeline.push({
         type: jsPsychHtmlKeyboardResponse,
         stimulus: function() {
-            if (experimentState.trainingAccuracy >= 30) return "";
+            if (experimentState.trainingAccuracy >= 0) return "";
             return "<p>Эксперимент завершён. Точность на тренировке была недостаточной.</p>";
         },
         on_finish: function() {

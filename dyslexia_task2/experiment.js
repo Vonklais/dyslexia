@@ -5,7 +5,7 @@
 // Глобальная переменная с параметрами
 const myDict = {
     trainingTime: 20000,      // Длительность тренировочного этапа (в мс)
-    testTime: 1000 * 60 * 0.5,// Длительность теста (в мс, 30 секунд)
+    testTime: 1000 * 60 * 5,// Длительность теста (в мс, 30 секунд)
     wordLength: 3,            // Длина слова в символах (будет переопределено в эксперименте)
     exposure: 300,           // Экспозиция (в мс)
     gap: 400,                // Задержка между стимулами (в мс)
@@ -230,7 +230,7 @@ function createFullTimeline() {
     const totalDuration = myDict.exposure + myDict.gap;
 
     // Подготовка данных
-    const wordLength = Math.random() < 0.5 ? 3 : 4; // Переопределяем wordLength из myDict
+    const wordLength = myDict.wordLength; // Переопределяем wordLength из myDict
     const selectedSet = wordLength === 3 ? letterSets3[Math.floor(Math.random() * letterSets3.length)] : letterSets4[Math.floor(Math.random() * letterSets4.length)];
     experimentState.targetWord = selectedSet.words[Math.floor(Math.random() * selectedSet.words.length)];
     const letters = selectedSet.letters.filter(letter => !experimentState.targetWord.includes(letter));

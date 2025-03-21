@@ -10,7 +10,7 @@ var jsPsych = initJsPsych({
 
 // Глобальные переменные
 const myDict = {
-  numRepetit: 3, // Число повторений
+  numRepetit: 30, // Число повторений
   wordlength: 4,  // Длина слова в символах
   expos: 500,     // Экспозиция
   gap: 500,       // Задержка
